@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenAmbientCore Ambilight Simulator</title>
+  <style>
+    :root {
+      --bg: #101215;
+      --panel: #181c21;
+      --panel-2: #20262d;
+      --text: #edf2f7;
+      --muted: #9ba7b4;
+      --line: #323b45;
+      --accent: #2dd4bf;
+      --warn: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+    }
+
+    .stage {
+      min-width: 0;
+      padding: 28px;
+      display: grid;
+      place-items: center;
+    }
+
+    .tv-wrap {
+      width: min(92vw, 980px);
+      aspect-ratio: 16 / 9;
+      position: relative;
+      display: grid;
+      place-items: center;
+    }
+
+    .led-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .led {
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #222;
+      box-shadow: 0 0 10px currentColor;
+      transform: translate(-50%, -50%);
+      color: #222;
+      transition: background 70ms linear, color 70ms linear;
+    }
+
+    .tv {
+      width: calc(100% - 78px);
+      height: calc(100% - 78px);
+      border: 3px solid #050608;
+      border-radius: 8px;
+      background: #050608;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .55);
+      overflow: hidden;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .badge {
+      position: absolute;
+      left: 18px;
+      top: 16px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, .48);
+      color: #fff;
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    aside {
+      border-left: 1px solid var(--line);
+      background: var(--panel);
+      padding: 22px;
+      overflow: auto;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .group {
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+      margin-top: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    select,
+    input[type="range"],
+    button {
+      width: 100%;
+    }
+
+    select,
+    button {
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel-2);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #05211f;
+      border-color: transparent;
+      font-weight: 700;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      margin: 14px 0;
+    }
+
+    .value {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      font-size: 13px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat {
+      min-height: 68px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 5px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .log {
+      min-height: 150px;
+      max-height: 210px;
+      overflow: auto;
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0c0f12;
+      color: #b7c4d2;
+      font: 12px/1.5 Consolas, Monaco, monospace;
+      white-space: pre-wrap;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .stage {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="stage" aria-label="Simulador visual">
+      <div class="tv-wrap">
+        <div id="ledLayer" class="led-layer"></div>
+        <div class="tv">
+          <canvas id="screen" width="960" height="540"></canvas>
+          <div id="badge" class="badge">MediaProjection simulado</div>
+        </div>
+      </div>
+    </section>
+
+    <aside>
+      <h1>OpenAmbientCore</h1>
+      <p class="sub">Simula lo que haria la app: mirar la pantalla, sacar colores de los bordes y enviarlos a WLED/ESP32.</p>
+
+      <div class="group">
+        <label for="contentMode">Contenido</label>
+        <select id="contentMode">
+          <option value="movie">Pelicula colorida</option>
+          <option value="game">Juego/neon</option>
+          <option value="sports">Cancha/deportes</option>
+          <option value="dark">Escena oscura</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <label for="ledMode">Modo de tira</label>
+        <select id="ledMode">
+          <option value="pixel">Pixel: WLED / WS2812B</option>
+          <option value="zones16">16 zonas: casual</option>
+          <option value="zones4">4 zonas: BLE/RGBIC limitado</option>
+          <option value="global">Global: tira basica</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <div class="row">
+          <label for="brightness">Brillo</label>
+          <span id="brightnessValue" class="value">45%</span>
+        </div>
+        <input id="brightness" type="range" min="5" max="100" value="45" />
+
+        <div class="row">
+          <label for="smoothing">Suavizado</label>
+          <span id="smoothingValue" class="value">55%</span>
+        </div>
+        <input id="smoothing" type="range" min="0" max="95" value="55" />
+
+        <div class="row">
+          <label for="fps">Envios por segundo</label>
+          <span id="fpsValue" class="value">15 FPS</span>
+        </div>
+        <input id="fps" type="range" min="2" max="30" value="15" />
+      </div>
+
+      <div class="group stats">
+        <div class="stat">
+          <strong id="ledCount">150</strong>
+          <span>LEDs virtuales</span>
+        </div>
+        <div class="stat">
+          <strong id="packetSize">450 B</strong>
+          <span>frame aprox.</span>
+        </div>
+        <div class="stat">
+          <strong id="driver">WLED</strong>
+          <span>salida simulada</span>
+        </div>
+        <div class="stat">
+          <strong id="latency">baja</strong>
+          <span>latencia esperada</span>
+        </div>
+      </div>
+
+      <div class="group">
+        <button id="toggle" class="primary">Pausar captura</button>
+      </div>
+
+      <div class="group">
+        <label>Paquetes simulados</label>
+        <pre id="log" class="log"></pre>
+      </div>
+
+      <div class="group">
+        <p class="note">En la app real, el canvas seria la captura de Android TV. El log seria reemplazado por paquetes UDP/DDP hacia el ESP32 con WLED.</p>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const canvas = document.getElementById("screen");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const ledLayer = document.getElementById("ledLayer");
+    const contentMode = document.getElementById("contentMode");
+    const ledMode = document.getElementById("ledMode");
+    const brightness = document.getElementById("brightness");
+    const smoothing = document.getElementById("smoothing");
+    const fps = document.getElementById("fps");
+    const brightnessValue = document.getElementById("brightnessValue");
+    const smoothingValue = document.getElementById("smoothingValue");
+    const fpsValue = document.getElementById("fpsValue");
+    const ledCount = document.getElementById("ledCount");
+    const packetSize = document.getElementById("packetSize");
+    const driver = document.getElementById("driver");
+    const latency = document.getElementById("latency");
+    const log = document.getElementById("log");
+    const toggle = document.getElementById("toggle");
+    const badge = document.getElementById("badge");
+
+    const LEDS = 150;
+    const leds = [];
+    let colors = Array.from({ length: LEDS }, () => [0, 0, 0]);
+    let running = true;
+    let lastSend = 0;
+    let packetCounter = 0;
+
+    function createLeds() {
+      ledLayer.innerHTML = "";
+      leds.length = 0;
+      const top = 42;
+      const left = 42;
+      const right = 100 - 42;
+      const bottom = 100 - 42;
+      const counts = { top: 43, right: 32, bottom: 43, left: 32 };
+
+      const points = [];
+      for (let i = 0; i < counts.top; i++) {
+        points.push([left + (right - left) * (i / (counts.top - 1)), top]);
+      }
+      for (let i = 1; i < counts.right; i++) {
+        points.push([right, top + (bottom - top) * (i / (counts.right - 1))]);
+      }
+      for (let i = 1; i < counts.bottom; i++) {
+        points.push([right - (right - left) * (i / (counts.bottom - 1)), bottom]);
+      }
+      for (let i = 1; i < counts.left - 1; i++) {
+        points.push([left, bottom - (bottom - top) * (i / (counts.left - 1))]);
+      }
+
+      points.slice(0, LEDS).forEach(([x, y]) => {
+        const el = document.createElement("span");
+        el.className = "led";
+        el.style.left = `${x}%`;
+        el.style.top = `${y}%`;
+        ledLayer.appendChild(el);
+        leds.push(el);
+      });
+    }
+
+    function drawScreen(t) {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      if (contentMode.value === "movie") {
+        const bg = ctx.createLinearGradient(0, 0, w, h);
+        bg.addColorStop(0, `hsl(${(t * 20) % 360}, 80%, 42%)`);
+        bg.addColorStop(.45, "#0f172a");
+        bg.addColorStop(1, `hsl(${(210 + t * 30) % 360}, 90%, 52%)`);
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, w, h);
+        drawOrb(w * (.25 + .15 * Math.sin(t)), h * .35, 160, "#ffb703");
+        drawOrb(w * (.72 + .12 * Math.cos(t * .7)), h * .62, 210, "#22d3ee");
+      }
+
+      if (contentMode.value === "game") {
+        ctx.fillStyle = "#070812";
+        ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < 9; i++) {
+          const x = (w / 8) * i;
+          ctx.strokeStyle = `hsl(${(i * 45 + t * 80) % 360}, 100%, 55%)`;
+          ctx.lineWidth = 8;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(w - x, h);
+          ctx.stroke();
+        }
+        drawOrb(w * .5, h * .5, 130 + 30 * Math.sin(t * 3), "#a855f7");
+      }
+
+      if (contentMode.value === "sports") {
+        ctx.fillStyle = "#116530";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "rgba(255,255,255,.8)";
+        ctx.lineWidth = 6;
+        ctx.strokeRect(70, 55, w - 140, h - 110);
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, 85, 0, Math.PI * 2);
+        ctx.stroke();
+        drawOrb(w * (.18 + .65 * ((Math.sin(t) + 1) / 2)), h * (.2 + .6 * ((Math.cos(t * .8) + 1) / 2)), 55, "#ffffff");
+      }
+
+      if (contentMode.value === "dark") {
+        ctx.fillStyle = "#030407";
+        ctx.fillRect(0, 0, w, h);
+        drawOrb(w * .25, h * .3, 95, "#2563eb");
+        drawOrb(w * .78, h * .78, 80, "#dc2626");
+        ctx.fillStyle = "rgba(0,0,0,.55)";
+        ctx.fillRect(0, h * .78, w, h * .22);
+      }
+
+      ctx.fillStyle = "rgba(0,0,0,.18)";
+      ctx.fillRect(0, 0, w, 42);
+      ctx.fillRect(0, h - 42, w, 42);
+    }
+
+    function drawOrb(x, y, r, color) {
+      const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
+      grd.addColorStop(0, color);
+      grd.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function sampleAverage(x, y, w, h) {
+      const data = ctx.getImageData(Math.max(0, x), Math.max(0, y), Math.max(1, w), Math.max(1, h)).data;
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      const step = 16;
+      let count = 0;
+      for (let i = 0; i < data.length; i += 4 * step) {
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        count++;
+      }
+      return [r / count, g / count, b / count];
+    }
+
+    function ledSampleRect(index) {
+      const w = canvas.width;
+      const h = canvas.height;
+      const topCount = 43;
+      const rightCount = 32;
+      const bottomCount = 43;
+      const band = 62;
+
+      if (index < topCount) {
+        const x = Math.floor((w / topCount) * index);
+        return [x, 0, Math.ceil(w / topCount), band];
+      }
+      if (index < topCount + rightCount) {
+        const i = index - topCount;
+        const y = Math.floor((h / rightCount) * i);
+        return [w - band, y, band, Math.ceil(h / rightCount)];
+      }
+      if (index < topCount + rightCount + bottomCount) {
+        const i = index - topCount - rightCount;
+        const x = Math.floor(w - (w / bottomCount) * (i + 1));
+        return [x, h - band, Math.ceil(w / bottomCount), band];
+      }
+      const leftCount = LEDS - topCount - rightCount - bottomCount;
+      const i = index - topCount - rightCount - bottomCount;
+      const y = Math.floor(h - (h / leftCount) * (i + 1));
+      return [0, y, band, Math.ceil(h / leftCount)];
+    }
+
+    function rawFrame() {
+      const mode = ledMode.value;
+      if (mode === "global") {
+        const c = sampleAverage(0, 0, canvas.width, canvas.height);
+        return colors.map(() => c);
+      }
+
+      if (mode === "zones4") {
+        const w = canvas.width;
+        const h = canvas.height;
+        const band = 70;
+        const zone = [
+          sampleAverage(0, 0, w, band),
+          sampleAverage(w - band, 0, band, h),
+          sampleAverage(0, h - band, w, band),
+          sampleAverage(0, 0, band, h)
+        ];
+        return colors.map((_, i) => zone[Math.floor(i / (LEDS / 4))] || zone[3]);
+      }
+
+      if (mode === "zones16") {
+        const zoneCount = 16;
+        const sampled = [];
+        for (let z = 0; z < zoneCount; z++) {
+          const start = Math.floor((LEDS / zoneCount) * z);
+          const end = Math.floor((LEDS / zoneCount) * (z + 1));
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = start; i < end; i++) {
+            const rect = ledSampleRect(i);
+            const c = sampleAverage(...rect);
+            r += c[0]; g += c[1]; b += c[2]; count++;
+          }
+          sampled.push([r / count, g / count, b / count]);
+        }
+        return colors.map((_, i) => sampled[Math.floor(i / (LEDS / zoneCount))] || sampled[zoneCount - 1]);
+      }
+
+      return colors.map((_, i) => sampleAverage(...ledSampleRect(i)));
+    }
+
+    function updateLeds(next) {
+      const smooth = Number(smoothing.value) / 100;
+      const bright = Number(brightness.value) / 100;
+      colors = colors.map((old, i) => {
+        const n = next[i];
+        return [
+          old[0] * smooth + n[0] * (1 - smooth),
+          old[1] * smooth + n[1] * (1 - smooth),
+          old[2] * smooth + n[2] * (1 - smooth)
+        ];
+      });
+
+      colors.forEach((c, i) => {
+        const r = Math.round(c[0] * bright);
+        const g = Math.round(c[1] * bright);
+        const b = Math.round(c[2] * bright);
+        const css = `rgb(${r}, ${g}, ${b})`;
+        leds[i].style.background = css;
+        leds[i].style.color = css;
+      });
+    }
+
+    function sendPacket(now) {
+      const interval = 1000 / Number(fps.value);
+      if (now - lastSend < interval) return;
+      lastSend = now;
+      packetCounter++;
+      const mode = ledMode.value;
+      const bytes = mode === "global" ? 3 : mode === "zones4" ? 12 : mode === "zones16" ? 48 : LEDS * 3;
+      const sample = colors.slice(0, 5).map(c => c.map(v => Math.round(v)).join(",")).join(" | ");
+      const lines = [
+        `#${packetCounter} -> ${driver.textContent} ${mode}`,
+        `bytes=${bytes} leds=${LEDS} fps=${fps.value}`,
+        `rgb[0..4]=${sample}`,
+        ""
+      ];
+      log.textContent = lines.join("\n") + log.textContent;
+      log.textContent = log.textContent.slice(0, 1800);
+    }
+
+    function updateStats() {
+      brightnessValue.textContent = `${brightness.value}%`;
+      smoothingValue.textContent = `${smoothing.value}%`;
+      fpsValue.textContent = `${fps.value} FPS`;
+      ledCount.textContent = LEDS;
+      const mode = ledMode.value;
+      if (mode === "pixel") {
+        packetSize.textContent = `${LEDS * 3} B`;
+        driver.textContent = "WLED";
+        latency.textContent = "baja";
+      } else if (mode === "zones16") {
+        packetSize.textContent = "48 B";
+        driver.textContent = "RGBIC";
+        latency.textContent = "media";
+      } else if (mode === "zones4") {
+        packetSize.textContent = "12 B";
+        driver.textContent = "BLE";
+        latency.textContent = "media";
+      } else {
+        packetSize.textContent = "3 B";
+        driver.textContent = "basico";
+        latency.textContent = "baja";
+      }
+    }
+
+    function frame(ms) {
+      const t = ms / 1000;
+      if (running) {
+        drawScreen(t);
+        updateLeds(rawFrame());
+        sendPacket(ms);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    [contentMode, ledMode, brightness, smoothing, fps].forEach(el => {
+      el.addEventListener("input", updateStats);
+    });
+
+    toggle.addEventListener("click", () => {
+      running = !running;
+      toggle.textContent = running ? "Pausar captura" : "Reanudar captura";
+      toggle.classList.toggle("primary", running);
+      badge.textContent = running ? "MediaProjection simulado" : "Captura pausada";
+    });
+
+    createLeds();
+    updateStats();
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
