@@ -1,1 +1,6 @@
 research/_external/
+local.properties
+.gradle/
+build/
+app/build/
+.tools/
