@@ -4,3 +4,6 @@ local.properties
 build/
 app/build/
 .tools/
+
+# Salidas de compilacion de las herramientas de tools/
+tools/*/out/
